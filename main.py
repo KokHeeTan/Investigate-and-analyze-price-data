@@ -6,10 +6,30 @@ import pandas as pd
 from datetime import datetime, date
 warnings.filterwarnings("ignore")
 
-_DATA_PATH = os.path.join(os.path.dirname(__file__), "Nat_Gas.csv")
-if not os.path.exists(_DATA_PATH):
-    # Fallback to the upload location used in the analysis environment
-    _DATA_PATH = "/mnt/user-data/uploads/Nat_Gas.csv"
+_GITHUB_URL = (
+    "https://raw.githubusercontent.com/"
+    "kokheetankh-gif/Investigate-and-analyze-price-data/main/Nat_Gas.csv"
+)
+ 
+ 
+def _fetch_data(url: str = _GITHUB_URL) -> pd.DataFrame:
+    """Download CSV from GitHub and return a clean DataFrame."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url) as resp:
+            raw = resp.read().decode("utf-8")
+    except Exception:
+        # Fallback: use curl (works in restricted envs)
+        result = subprocess.run(["curl", "-s", url], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"Could not fetch data from {url}")
+        raw = result.stdout
+ 
+    df = pd.read_csv(io.StringIO(raw))
+    df["date"]  = pd.to_datetime(df["Dates"], format="%m/%d/%y")
+    df          = df.sort_values("date").reset_index(drop=True)
+    df["month"] = df["date"].dt.month
+    return df
 
 # Load and fit the model once at import time
 def _build_model(csv_path: str):
